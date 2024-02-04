@@ -1,4 +1,4 @@
-package com.severett.transactionbank.model.transaction
+package com.severett.transactionbank.model.account
 
 import java.math.BigDecimal
 import java.time.LocalDateTime

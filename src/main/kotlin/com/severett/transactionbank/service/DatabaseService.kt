@@ -2,8 +2,8 @@ package com.severett.transactionbank.service
 
 import com.severett.transactionbank.model.exception.AccountMissingException
 import com.severett.transactionbank.model.exception.InternalException
-import com.severett.transactionbank.model.transaction.AccountTransaction
-import com.severett.transactionbank.model.transaction.TransactionType
+import com.severett.transactionbank.model.account.AccountTransaction
+import com.severett.transactionbank.model.account.TransactionType
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
