@@ -23,6 +23,7 @@ dependencies {
 	implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 	implementation("io.github.oshai:kotlin-logging-jvm:6.0.3")
 	implementation("io.projectreactor.kotlin:reactor-kotlin-extensions")
+	implementation("org.hibernate.validator:hibernate-validator")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
 	implementation("org.liquibase:liquibase-core:4.25.1")
