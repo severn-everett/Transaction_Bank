@@ -52,7 +52,7 @@ class DatabaseService(private val namedParameterJdbcTemplate: NamedParameterJdbc
                     accountId = accountId,
                     serialNumber = rs.getLong(SERIAL_NUMBER_PARAM),
                     amount = BigDecimal.valueOf(rs.getDouble(AMOUNT_PARAM)),
-                    timestamp = LocalDateTime.parse(rs.getString(TIMESTAMP_PARAM))
+                    timestamp = rs.getTimestamp(TIMESTAMP_PARAM).toLocalDateTime()
                 )
             }
         } catch (e: Exception) {
@@ -67,10 +67,11 @@ class DatabaseService(private val namedParameterJdbcTemplate: NamedParameterJdbc
             transactions.forEach { transaction ->
                 namedParameterJdbcTemplate.update(
                     "INSERT INTO transaction (account_id, type, serial_number, amount) " +
-                            "VALUES (:$ACCOUNT_ID_PARAM, :$TYPE_PARAM, :$SERIAL_NUMBER_PARAM, :$AMOUNT_PARAM)",
+                            "VALUES (:$ACCOUNT_ID_PARAM, CAST(:$TYPE_PARAM AS transaction_type), " +
+                            ":$SERIAL_NUMBER_PARAM, :$AMOUNT_PARAM)",
                     MapSqlParameterSource()
                         .addValue(ACCOUNT_ID_PARAM, transaction.accountId)
-                        .addValue(TYPE_PARAM, transaction.type)
+                        .addValue(TYPE_PARAM, transaction.type.name)
                         .addValue(SERIAL_NUMBER_PARAM, transaction.serialNumber)
                         .addValue(AMOUNT_PARAM, transaction.amount)
                 )
