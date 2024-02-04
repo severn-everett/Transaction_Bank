@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import java.math.BigDecimal
 
+private const val NON_POSITIVE_AMOUNT_MESSAGE = "Amount must be a positive number"
+
 @RestController
 class TransactionController(private val accountService: AccountService) {
     @PostMapping("/deposit")
@@ -16,7 +18,7 @@ class TransactionController(private val accountService: AccountService) {
         @NotBlank
         accountId: String,
         @RequestParam
-        @DecimalMin(value = "0.0", inclusive = false)
+        @DecimalMin(value = "0.0", inclusive = false, message = NON_POSITIVE_AMOUNT_MESSAGE)
         amount: BigDecimal,
     ) {
         accountService.deposit(accountId = accountId, amount = amount)
@@ -28,7 +30,7 @@ class TransactionController(private val accountService: AccountService) {
         @NotBlank
         accountId: String,
         @RequestParam
-        @DecimalMin(value = "0.0", inclusive = false)
+        @DecimalMin(value = "0.0", inclusive = false, message = NON_POSITIVE_AMOUNT_MESSAGE)
         amount: BigDecimal,
     ) {
         accountService.withdraw(accountId = accountId, amount = amount)
@@ -43,7 +45,7 @@ class TransactionController(private val accountService: AccountService) {
         @NotBlank
         toAccountId: String,
         @RequestParam
-        @DecimalMin(value = "0.0", inclusive = false)
+        @DecimalMin(value = "0.0", inclusive = false, message = NON_POSITIVE_AMOUNT_MESSAGE)
         amount: BigDecimal,
     ) {
         accountService.transfer(fromAccountId = fromAccountId, toAccountId = toAccountId, amount = amount)
