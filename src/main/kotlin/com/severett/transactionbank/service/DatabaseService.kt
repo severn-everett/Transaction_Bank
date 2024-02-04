@@ -4,16 +4,17 @@ import com.severett.transactionbank.model.account.AccountTransaction
 import com.severett.transactionbank.model.account.TransactionType
 import com.severett.transactionbank.model.exception.AccountMissingException
 import com.severett.transactionbank.model.exception.InternalException
+import com.severett.transactionbank.model.exception.TransactionCollisionException
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.springframework.dao.DuplicateKeyException
 import org.springframework.jdbc.core.ResultSetExtractor
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
-import java.time.LocalDateTime
 
 private val logger = KotlinLogging.logger { }
 
@@ -23,7 +24,7 @@ private const val SERIAL_NUMBER_PARAM = "serial_number"
 private const val AMOUNT_PARAM = "amount"
 private const val TIMESTAMP_PARAM = "timestamp"
 
-private const val UNIQUE_CONSTRAINT_VIOLATION = 23505
+private const val UNIQUE_CONSTRAINT_VIOLATION = "transaction_account_id_serial_number_key"
 
 @Service
 class DatabaseService(private val namedParameterJdbcTemplate: NamedParameterJdbcOperations) {
@@ -77,9 +78,13 @@ class DatabaseService(private val namedParameterJdbcTemplate: NamedParameterJdbc
                 )
             }
         } catch (e: Exception) {
-            logger.error(e) { "A database exception occurred" }
-            throw InternalException(e.message ?: "")
+            if (e is DuplicateKeyException && e.message?.contains(UNIQUE_CONSTRAINT_VIOLATION) == true) {
+                logger.debug(e) { "A transaction collision occurred" }
+                throw TransactionCollisionException()
+            } else {
+                logger.error(e) { "A database exception occurred" }
+                throw InternalException(e.message ?: "")
+            }
         }
     }
-
 }

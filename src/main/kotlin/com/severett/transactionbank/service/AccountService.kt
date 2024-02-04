@@ -8,84 +8,99 @@ import com.severett.transactionbank.model.exception.TransactionDisallowedExcepti
 import com.severett.transactionbank.util.Constants.DAILY_DEPOSIT_LIMIT
 import com.severett.transactionbank.util.Constants.OVERDRAFT_LIMIT
 import com.severett.transactionbank.util.DateUtil.toDateStr
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import java.math.BigDecimal
 import java.time.LocalDateTime
 
+private val logger = KotlinLogging.logger { }
+
 @Service
 class AccountService(private val dbService: DatabaseService) {
 
-    suspend fun deposit(accountId: String, amount: BigDecimal) = execute {
-        val account = getAccount(accountId)
-        if (canDeposit(account = account, amount = amount)) {
-            dbService.saveTransactions(
-                AccountTransaction(
-                    type = TransactionType.DEPOSIT,
-                    accountId = accountId,
-                    serialNumber = account.serialNumber + 1L,
-                    amount = amount,
-                    timestamp = LocalDateTime.now(),
-                ),
-            )
-        } else {
-            throw TransactionDisallowedException("Transaction would exceed daily deposit limit of $DAILY_DEPOSIT_LIMIT")
-        }
-    }
+    suspend fun deposit(accountId: String, amount: BigDecimal) {
+        logger.debug { "Executing a deposit of $amount into account '$accountId'" }
 
-    suspend fun withdraw(accountId: String, amount: BigDecimal) = execute {
-        val account = getAccount(accountId)
-        if (canWithdraw(account = account, amount = amount)) {
-            dbService.saveTransactions(
-                AccountTransaction(
-                    type = TransactionType.WITHDRAWAL,
-                    accountId = accountId,
-                    serialNumber = account.serialNumber + 1L,
-                    amount = amount,
-                    timestamp = LocalDateTime.now(),
-                ),
-            )
-        } else {
-            throw TransactionDisallowedException("Transaction would exceed overdraft limit of $OVERDRAFT_LIMIT")
-        }
-    }
-
-    suspend fun transfer(fromAccountId: String, toAccountId: String, amount: BigDecimal) = execute {
-        val fromAccount = getAccount(fromAccountId)
-        val toAccount = getAccount(toAccountId)
-        when {
-            !canTransfer(account = fromAccount, amount = amount) -> {
-                throw TransactionDisallowedException("Unable to overdraft on transfer")
-            }
-
-            !canDeposit(account = toAccount, amount = amount) -> {
-                throw TransactionDisallowedException(
-                    "Transaction would exceed daily deposit limit of $DAILY_DEPOSIT_LIMIT"
+        execute {
+            val account = getAccount(accountId)
+            if (canDeposit(account = account, amount = amount)) {
+                dbService.saveTransactions(
+                    AccountTransaction(
+                        type = TransactionType.DEPOSIT,
+                        accountId = accountId,
+                        serialNumber = account.serialNumber + 1L,
+                        amount = amount,
+                        timestamp = LocalDateTime.now(),
+                    ),
                 )
+            } else {
+                throw TransactionDisallowedException("Transaction would exceed daily deposit limit of $DAILY_DEPOSIT_LIMIT")
             }
+        }
+    }
 
-            else -> {
-                val timestamp = LocalDateTime.now()
+    suspend fun withdraw(accountId: String, amount: BigDecimal) {
+        logger.debug { "Executing a withdrawal of $amount from account '$accountId'" }
+
+        execute {
+            val account = getAccount(accountId)
+            if (canWithdraw(account = account, amount = amount)) {
                 dbService.saveTransactions(
                     AccountTransaction(
                         type = TransactionType.WITHDRAWAL,
-                        accountId = fromAccountId,
-                        serialNumber = fromAccount.serialNumber + 1L,
+                        accountId = accountId,
+                        serialNumber = account.serialNumber + 1L,
                         amount = amount,
-                        timestamp = timestamp,
-                    ),
-                    AccountTransaction(
-                        type = TransactionType.DEPOSIT,
-                        accountId = fromAccountId,
-                        serialNumber = fromAccount.serialNumber + 1L,
-                        amount = amount,
-                        timestamp = timestamp,
+                        timestamp = LocalDateTime.now(),
                     ),
                 )
+            } else {
+                throw TransactionDisallowedException("Transaction would exceed overdraft limit of $OVERDRAFT_LIMIT")
             }
         }
     }
 
-    private suspend inline fun execute(serviceAction: () -> Unit) {
+    suspend fun transfer(fromAccountId: String, toAccountId: String, amount: BigDecimal) {
+        logger.debug { "Executing a transfer of $amount from account '$fromAccountId' into account '$toAccountId'" }
+
+        execute {
+            val fromAccount = getAccount(fromAccountId)
+            val toAccount = getAccount(toAccountId)
+            when {
+                !canTransfer(account = fromAccount, amount = amount) -> {
+                    throw TransactionDisallowedException("Unable to overdraft on transfer")
+                }
+
+                !canDeposit(account = toAccount, amount = amount) -> {
+                    throw TransactionDisallowedException(
+                        "Transaction would exceed daily deposit limit of $DAILY_DEPOSIT_LIMIT"
+                    )
+                }
+
+                else -> {
+                    val timestamp = LocalDateTime.now()
+                    dbService.saveTransactions(
+                        AccountTransaction(
+                            type = TransactionType.WITHDRAWAL,
+                            accountId = fromAccountId,
+                            serialNumber = fromAccount.serialNumber + 1L,
+                            amount = amount,
+                            timestamp = timestamp,
+                        ),
+                        AccountTransaction(
+                            type = TransactionType.DEPOSIT,
+                            accountId = fromAccountId,
+                            serialNumber = fromAccount.serialNumber + 1L,
+                            amount = amount,
+                            timestamp = timestamp,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    private inline fun execute(serviceAction: () -> Unit) {
         var isSuccessful = false
         while (!isSuccessful) {
             try {
