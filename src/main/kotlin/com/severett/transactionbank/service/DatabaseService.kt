@@ -1,12 +1,13 @@
 package com.severett.transactionbank.service
 
-import com.severett.transactionbank.model.exception.AccountMissingException
-import com.severett.transactionbank.model.exception.InternalException
 import com.severett.transactionbank.model.account.AccountTransaction
 import com.severett.transactionbank.model.account.TransactionType
+import com.severett.transactionbank.model.exception.AccountMissingException
+import com.severett.transactionbank.model.exception.InternalException
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.springframework.jdbc.core.ResultSetExtractor
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations
 import org.springframework.stereotype.Service
@@ -29,23 +30,23 @@ class DatabaseService(private val namedParameterJdbcTemplate: NamedParameterJdbc
 
     suspend fun getAmount(accountId: String) = withContext(Dispatchers.IO) {
         try {
-            namedParameterJdbcTemplate.queryForObject(
+            namedParameterJdbcTemplate.query(
                 "SELECT amount FROM account WHERE id = :$ACCOUNT_ID_PARAM",
                 MapSqlParameterSource().addValue(ACCOUNT_ID_PARAM, accountId),
-                BigDecimal::class.java,
-            ) ?: throw AccountMissingException("Account '$accountId' not found")
+                ResultSetExtractor { rs -> rs.takeIf { rs.next() }?.let { rs.getBigDecimal(AMOUNT_PARAM) } }
+            )
         } catch (e: Exception) {
             logger.error(e) { "A database exception occurred" }
             throw InternalException(e.message ?: "")
-        }
+        } ?: throw AccountMissingException("Account '$accountId' not found")
     }
 
-    suspend fun getTransactions(accountId: String) = withContext(Dispatchers.IO) {
+    suspend fun getTransactions(accountId: String): List<AccountTransaction> = withContext(Dispatchers.IO) {
         try {
             namedParameterJdbcTemplate.query(
                 "SELECT type, serial_number, amount, timestamp FROM transaction WHERE account_id = :$ACCOUNT_ID_PARAM",
                 MapSqlParameterSource().addValue(ACCOUNT_ID_PARAM, accountId)
-            ) { rs, rowNum ->
+            ) { rs, _ ->
                 AccountTransaction(
                     type = TransactionType.valueOf(rs.getString(TYPE_PARAM)),
                     accountId = accountId,
